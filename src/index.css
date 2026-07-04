@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+@theme {
+  /* VS Code Dark Modern Color Overrides */
+  --color-slate-950: #181818; /* Deep dark / activity bar */
+  --color-slate-900: #1e1e1e; /* Editor background */
+  --color-slate-850: #252526; /* Panel background */
+  --color-slate-800: #2d2d2d; /* VS Code border grey */
+  --color-slate-700: #3c3c3c; /* Secondary button hover */
+  --color-slate-600: #858585; /* Foreground placeholder grey */
+  
+  --color-cyan-950: #1e1e1e;  /* Input boxes fallback */
+  --color-cyan-600: #007acc;  /* VS Code blue highlight */
+  --color-cyan-500: #007acc;  /* VS Code blue button */
+  --color-cyan-400: #007acc;  /* Text highlight cyan */
+  
+  --color-purple-950: #2a2d2e; /* Active list selections */
+  --color-purple-600: #3a3d3e;
+  
+  --color-emerald-400: #4ec9b0; /* VS Code green type coloring */
+  --color-yellow-500: #dcdcaa;  /* VS Code function yellow */
+  --color-fuchsia-400: #c586c0; /* VS Code keyword purple */
+  --color-rose-500: #f44747;    /* VS Code compiler error red */
+  --color-red-500: #f44747;
+}
+
+@layer base {
+  body, button, input, select, textarea {
+    font-family: 'Product Sans', 'Google Sans', 'Plus Jakarta Sans', 'Outfit', 'Inter', system-ui, sans-serif;
+  }
+  body {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    overflow-x: hidden;
+  }
+  
+  /* Global Neumorphic Click Physics for Buttons */
+  button {
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+  
+  button:hover {
+    transform: scale(1.025) translateY(-1px);
+  }
+  
+  button:active {
+    transform: scale(0.97) translateY(1px);
+  }
+}
+
+/* Custom VS Code Styled Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242;
+  border: 2px solid #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4f4f4f;
+}
+
+/* VS Code + Neumorphic Dark Cyber Styling */
+.cyber-grid {
+  background-image: linear-gradient(rgba(45, 45, 45, 0.25) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(45, 45, 45, 0.25) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.cyber-scanline::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to bottom, rgba(18, 18, 18, 0) 50%, rgba(0, 122, 204, 0.02) 50%);
+  background-size: 100% 4px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Neumorphic Extruded Panels with 3D Rotate Physics */
+.glass-card {
+  background: #252526;
+  border: 1px solid #29292a;
+  border-radius: 16px;
+  /* Dual shadows for Neumorphic extrusion: light top-left, dark bottom-right */
+  box-shadow: -4px -4px 12px rgba(255, 255, 255, 0.015),
+              6px 6px 16px rgba(0, 0, 0, 0.45),
+              inset 1px 1px 0px rgba(255, 255, 255, 0.04);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateZ(0);
+}
+
+.glass-card:hover {
+  border-color: #007acc;
+  /* 3D Translation & Rotation */
+  transform: perspective(1000px) rotateX(1deg) rotateY(1deg) translateY(-6px) translateZ(8px);
+  /* Enhanced shadows when hovered */
+  box-shadow: -8px -8px 20px rgba(255, 255, 255, 0.025),
+              8px 8px 24px rgba(0, 0, 0, 0.6),
+              0 0 10px rgba(0, 122, 204, 0.3);
+}
+
+/* Neumorphic Inset Input Fields */
+.glass-input {
+  background: #1a1a1b;
+  border: 1px solid #282829;
+  color: #fff;
+  font-family: 'Consolas', 'Fira Code', monospace;
+  border-radius: 8px;
+  /* Inset shadows for Neumorphic sunken appearance */
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.6),
+              inset -3px -3px 8px rgba(255, 255, 255, 0.01);
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.glass-input:focus {
+  border-color: #007acc;
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.7),
+              inset -2px -2px 4px rgba(255, 255, 255, 0.025),
+              0 0 8px rgba(0, 122, 204, 0.4);
+  outline: none;
+}
+
+/* Neumorphic Inset Buttons for Active items/toggles */
+.neu-inset {
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.6),
+              inset -3px -3px 6px rgba(255, 255, 255, 0.01);
+}
+
+/* Text glow effects */
+.text-glow-cyan {
+  text-shadow: 0 0 8px rgba(0, 122, 204, 0.5);
+}
+
+.text-glow-purple {
+  text-shadow: 0 0 8px rgba(197, 134, 192, 0.5);
+}
+
+.text-glow-red {
+  text-shadow: 0 0 8px rgba(244, 71, 71, 0.5);
+}
+
+/* Page load animations */
+@keyframes slideUp {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
