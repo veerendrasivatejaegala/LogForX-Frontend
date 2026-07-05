@@ -9,7 +9,8 @@ export default function EvidenceVault() {
   const [selectedFile, setSelectedFile] = useState(null);
 
   const getFileIcon = (type) => {
-    switch (type.toLowerCase()) {
+    const t = (type || '').toLowerCase();
+    switch (t) {
       case 'csv': return <FileSpreadsheet className="w-4 h-4 text-emerald-400" />;
       case 'json': return <FileJson className="w-4 h-4 text-yellow-400" />;
       case 'evtx': return <FileCode className="w-4 h-4 text-cyan-400" />;
@@ -19,9 +20,13 @@ export default function EvidenceVault() {
 
   // Filter evidence
   const filteredEvidence = evidence.filter(file => {
-    const matchesSearch = file.fileName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          file.hash.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === 'All' || file.fileType.toLowerCase() === typeFilter.toLowerCase();
+    const name = file.fileName || '';
+    const hash = file.hash || '';
+    const type = file.fileType || 'log';
+
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          hash.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === 'All' || type.toLowerCase() === typeFilter.toLowerCase();
     return matchesSearch && matchesType;
   });
 

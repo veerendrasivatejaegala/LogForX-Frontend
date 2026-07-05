@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useForensic } from '../context/ForensicContext';
-import { ShieldAlert, ShieldAlert as AlertIcon, AlertTriangle, ShieldCheck, Play } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, ShieldCheck, Play } from 'lucide-react';
 
 export default function SuspiciousDetection() {
   const { detections, setActivePage } = useForensic();
   const [activeTab, setActiveTab] = useState('All');
 
   const getSeverityBadge = (severity) => {
-    switch (severity.toLowerCase()) {
+    const sev = (severity || 'low').toLowerCase();
+    switch (sev) {
       case 'critical':
         return 'bg-red-950/40 border border-red-500/40 text-red-400 text-glow-red animate-pulse';
       case 'high':
@@ -22,6 +23,7 @@ export default function SuspiciousDetection() {
   const tabs = ['All', 'Critical', 'High', 'Medium', 'Low'];
   
   const filteredDetections = detections.filter(d => {
+    if (!d.severity) return activeTab === 'All' || activeTab.toLowerCase() === 'low';
     if (activeTab === 'All') return true;
     return d.severity.toLowerCase() === activeTab.toLowerCase();
   });
@@ -37,10 +39,10 @@ export default function SuspiciousDetection() {
         {/* Alerts count summary */}
         <div className="flex items-center gap-4 text-xs font-mono">
           <div className="px-3 py-1.5 rounded-lg bg-red-950/30 border border-red-500/30 text-red-400">
-            CRITICAL: {detections.filter(d => d.severity.toLowerCase() === 'critical').length}
+            CRITICAL: {detections.filter(d => d.severity && d.severity.toLowerCase() === 'critical').length}
           </div>
           <div className="px-3 py-1.5 rounded-lg bg-orange-950/30 border border-orange-500/30 text-orange-400">
-            HIGH: {detections.filter(d => d.severity.toLowerCase() === 'high').length}
+            HIGH: {detections.filter(d => d.severity && d.severity.toLowerCase() === 'high').length}
           </div>
         </div>
       </div>
@@ -48,7 +50,7 @@ export default function SuspiciousDetection() {
       {/* Tabs */}
       <div className="flex border-b border-slate-900 gap-2">
         {tabs.map(tab => {
-          const count = tab === 'All' ? detections.length : detections.filter(d => d.severity.toLowerCase() === tab.toLowerCase()).length;
+          const count = tab === 'All' ? detections.length : detections.filter(d => d.severity && d.severity.toLowerCase() === tab.toLowerCase()).length;
           return (
             <button
               key={tab}
@@ -77,7 +79,7 @@ export default function SuspiciousDetection() {
             <div
               key={alert.id}
               className={`glass-card rounded-xl p-5 border relative overflow-hidden flex flex-col justify-between ${
-                alert.severity.toLowerCase() === 'critical' ? 'border-red-500/30 hover:border-red-500/50 shadow-lg shadow-red-950/5' : 'border-slate-800/80'
+                alert.severity && alert.severity.toLowerCase() === 'critical' ? 'border-red-500/30 hover:border-red-500/50 shadow-lg shadow-red-950/5' : 'border-slate-800/80'
               }`}
             >
               
@@ -91,7 +93,7 @@ export default function SuspiciousDetection() {
                 </div>
 
                 <h3 className="text-base font-bold text-white mb-2 font-mono flex items-center gap-2">
-                  {alert.severity.toLowerCase() === 'critical' || alert.severity.toLowerCase() === 'high' ? (
+                  {alert.severity && (alert.severity.toLowerCase() === 'critical' || alert.severity.toLowerCase() === 'high') ? (
                     <ShieldAlert className="w-5 h-5 text-red-500 shrink-0" />
                   ) : (
                     <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0" />

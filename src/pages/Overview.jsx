@@ -10,7 +10,7 @@ export default function Overview() {
   const totalCases = 4;
   const activeCases = 1;
   const uploadedFilesCount = evidence.length;
-  const criticalAlertsCount = detections.filter(d => d.severity.toLowerCase() === 'critical').length;
+  const criticalAlertsCount = detections.filter(d => d.severity && d.severity.toLowerCase() === 'critical').length;
   
   // 2. Recharts Data
   // Dynamic Incident Trends based on actual timeline events or static default if empty
@@ -49,7 +49,8 @@ export default function Overview() {
     }
     const counts = {};
     detections.forEach(d => {
-      counts[d.threatType] = (counts[d.threatType] || 0) + 1;
+      const type = d.threatType || 'Unknown Threat';
+      counts[type] = (counts[type] || 0) + 1;
     });
     return Object.keys(counts).map(key => ({
       name: key,

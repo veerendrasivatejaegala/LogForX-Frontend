@@ -14,8 +14,9 @@ export default function TimelineReconstruction() {
   };
 
   const getSeverityStyle = (sev) => {
-    switch (sev.toLowerCase()) {
-      case 'critical': return 'border-red-500/50 bg-red-950/40 text-red-400 text-glow-red';
+    const s = (sev || 'low').toLowerCase();
+    switch (s) {
+      case 'critical': return 'border-red-500/50 bg-red-950/40 text-red-400';
       case 'high': return 'border-orange-500/50 bg-orange-950/40 text-orange-400';
       case 'medium': return 'border-yellow-500/50 bg-yellow-950/40 text-yellow-400';
       default: return 'border-cyan-500/50 bg-cyan-950/40 text-cyan-400';
@@ -25,12 +26,19 @@ export default function TimelineReconstruction() {
   // Filter and sort events chronologically
   const filteredEvents = events
     .filter(event => {
-      const matchesSearch = event.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            event.payloadDetails.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            event.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            event.ipAddress.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesSeverity = severityFilter === 'All' || event.severity.toLowerCase() === severityFilter.toLowerCase();
-      const matchesType = typeFilter === 'All' || event.eventType.toLowerCase() === typeFilter.toLowerCase();
+      const action = event.action || '';
+      const payload = event.payloadDetails || '';
+      const user = event.username || '';
+      const ip = event.ipAddress || '';
+      const sev = event.severity || 'low';
+      const type = event.eventType || 'system';
+
+      const matchesSearch = action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            payload.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            user.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            ip.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSeverity = severityFilter === 'All' || sev.toLowerCase() === severityFilter.toLowerCase();
+      const matchesType = typeFilter === 'All' || type.toLowerCase() === typeFilter.toLowerCase();
       
       return matchesSearch && matchesSeverity && matchesType;
     })

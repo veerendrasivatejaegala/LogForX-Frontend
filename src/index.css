@@ -144,7 +144,23 @@
 }
 
 .text-glow-red {
-  text-shadow: 0 0 8px rgba(244, 71, 71, 0.5);
+  text-shadow: none; /* Removed text-shadow to prevent rendering/flicker bugs in hardware acceleration */
+  color: #ff5252;
+}
+
+/* Fix for Select elements flickering inside dynamic grids */
+select.glass-input {
+  transition: none !important;
+  box-shadow: none !important;
+}
+
+select.glass-input:focus {
+  box-shadow: 0 0 4px rgba(0, 122, 204, 0.4) !important;
+}
+
+select.glass-input option {
+  background-color: #1a1a1b !important;
+  color: #ffffff !important;
 }
 
 /* Page load animations */
